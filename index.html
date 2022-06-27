@@ -28,8 +28,8 @@
 
     .wrapper {
         position: relative;
-        width: 100%;
-        height: 100%;
+        width: 50%;
+        height: 50%;
         pointer-events: none;
     }
 
@@ -47,12 +47,17 @@
   <div id="age">Age: -</div>
   <div id="gender">Gender: -</div>
   <div id="emotion">Emotion: -</div>
-  <div>
-    <video id="video" playsinline autoplay></video>
-  </div>  
-  <div class="wrapper">
-    <canvas class="charts" id="chart"></canvas>
+  <div class="controls">
+    <button id="button">Get camera</button>
+    <select id="select">
+      <option></option>
+    </select>
   </div>
+  <div class="wrapper">
+    <video id="video" playsinline autoplay></video>
+    <canvas class="charts" id="chart"></canvas>
+  </div>  
+
 <script src="https://sdk.morphcast.com/mphtools/v1.0/mphtools.js"></script>
 <script src="https://ai-sdk.morphcast.com/v1.16/ai-sdk.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
@@ -68,8 +73,12 @@
 const age_div = document.querySelector("#age");
 const gen_div = document.querySelector("#gender");
 const emo_div = document.querySelector("#emotion");
-const constraints = { audio: true, video: { width: 1280, height: 720 } };
+const constraints = { audio: true, video: { width: 720, height: 480 } };
 const video = document.querySelector('video');
+const button = document.getElementById('button');
+const select = document.getElementById('select');
+let currentStream;
+
 
 window.addEventListener(CY.modules().FACE_AGE.eventName, (evt) => {
  age_div.innerHTML = 'Age: ' + evt.detail.output.numericAge;
@@ -92,6 +101,52 @@ navigator.mediaDevices.getUserMedia(constraints)
   };
 })
 .catch(function(err) { console.log(err.name + ": " + err.message); });
+
+function gotDevices(mediaDevices) {
+  select.innerHTML = '';
+  select.appendChild(document.createElement('option'));
+  let count = 1;
+  mediaDevices.forEach(mediaDevice => {
+    if (mediaDevice.kind === 'videoinput') {
+      const option = document.createElement('option');
+      option.value = mediaDevice.deviceId;
+      const label = mediaDevice.label || `Camera ${count++}`;
+      const textNode = document.createTextNode(label);
+      option.appendChild(textNode);
+      select.appendChild(option);
+    }
+  });
+}
+
+button.addEventListener('click', event => {
+  if (typeof currentStream !== 'undefined') {
+    stopMediaTracks(currentStream);
+  }
+  const videoConstraints = {};
+  if (select.value === '') {
+    videoConstraints.facingMode = 'environment';
+  } else {
+    videoConstraints.deviceId = { exact: select.value };
+  }
+  const constraints = {
+    video: videoConstraints,
+    audio: false
+  };
+  navigator.mediaDevices
+    .getUserMedia(constraints)
+    .then(stream => {
+      currentStream = stream;
+      video.srcObject = stream;
+      return navigator.mediaDevices.enumerateDevices();
+    })
+    .then(gotDevices)
+    .catch(error => {
+      console.error(error);
+    });
+});
+
+navigator.mediaDevices.enumerateDevices().then(gotDevices);
+
 </script>
 <script>
   const el = document.getElementById('chart');
